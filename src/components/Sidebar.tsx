@@ -10,7 +10,8 @@ import {
   TrendingUp,
   FileText,
   Shield,
-  HelpCircle
+  HelpCircle,
+  Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,7 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
   { id: 'transactions', label: 'Transactions', icon: CreditCard },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'ai-assistant', label: 'AI Assistant', icon: Bot },
   { id: 'customers', label: 'Customers', icon: Users },
   { id: 'payouts', label: 'Payouts', icon: DollarSign },
   { id: 'growth', label: 'Growth Tools', icon: TrendingUp },

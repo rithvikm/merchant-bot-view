@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { DashboardContent } from '@/components/DashboardContent';
+import { AIAssistant } from '@/components/AIAssistant';
 import { Chatbot } from '@/components/Chatbot';
 
 const Index = () => {
@@ -12,6 +13,8 @@ const Index = () => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardContent />;
+      case 'ai-assistant':
+        return <AIAssistant />;
       case 'transactions':
         return (
           <div className="p-6">
