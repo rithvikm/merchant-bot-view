@@ -10,21 +10,22 @@ import {
   Bot, 
   Minimize2, 
   Maximize2,
-  BarChart3,
-  Image as ImageIcon
+  Loader2
 } from 'lucide-react';
 import { Message } from '@/types/chatbot';
 import { ChatMessage } from './chatbot/ChatMessage';
 import { generateBotResponse } from '@/utils/chatbotResponses';
+import { ApiKeyDialog } from './chatbot/ApiKeyDialog';
 
 export const Chatbot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       type: 'bot',
-      content: 'Hello! I\'m your PayPal assistant. I can help you with analytics, show charts, and display images. Try asking me about your revenue, transactions, or request a chart!',
+      content: 'Hello! I\'m your PayPal AI assistant. I can help you with questions about your account, transactions, and PayPal features. For detailed analytics and charts, try the AI Assistant section!',
       timestamp: new Date(),
     }
   ]);
@@ -39,8 +40,8 @@ export const Chatbot: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -50,13 +51,25 @@ export const Chatbot: React.FC = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue('');
+    setIsLoading(true);
 
-    // Simulate bot response delay
-    setTimeout(() => {
-      const botResponse = generateBotResponse(inputValue);
+    try {
+      const botResponse = await generateBotResponse(currentInput, messages);
       setMessages(prev => [...prev, botResponse]);
-    }, 1000);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) {
@@ -78,9 +91,10 @@ export const Chatbot: React.FC = () => {
       <CardHeader className="flex flex-row items-center justify-between p-4 bg-blue-600 text-white rounded-t-lg">
         <div className="flex items-center space-x-2">
           <Bot className="w-5 h-5" />
-          <CardTitle className="text-sm">PayPal Assistant</CardTitle>
+          <CardTitle className="text-sm">PayPal AI Assistant</CardTitle>
         </div>
         <div className="flex items-center space-x-2">
+          <ApiKeyDialog />
           <Button
             variant="ghost"
             size="sm"
@@ -106,6 +120,17 @@ export const Chatbot: React.FC = () => {
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
             ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="max-w-xs p-3 rounded-lg bg-gray-100 text-gray-900">
+                  <div className="flex items-center space-x-2">
+                    <Bot className="w-4 h-4 flex-shrink-0" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Thinking...</span>
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -114,39 +139,21 @@ export const Chatbot: React.FC = () => {
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Ask about charts, images, or analytics..."
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                placeholder="Ask me about PayPal features, transactions..."
                 className="flex-1"
+                disabled={isLoading}
               />
-              <Button onClick={handleSendMessage} size="sm">
-                <Send className="w-4 h-4" />
+              <Button 
+                onClick={handleSendMessage} 
+                size="sm"
+                disabled={isLoading || !inputValue.trim()}
+              >
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
             </div>
-            <div className="flex items-center justify-center space-x-4 mt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setInputValue('Show me a revenue chart');
-                  handleSendMessage();
-                }}
-                className="text-xs"
-              >
-                <BarChart3 className="w-3 h-3 mr-1" />
-                Chart
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setInputValue('Show me an image');
-                  handleSendMessage();
-                }}
-                className="text-xs"
-              >
-                <ImageIcon className="w-3 h-3 mr-1" />
-                Image
-              </Button>
+            <div className="text-xs text-gray-500 mt-2 text-center">
+              {!localStorage.getItem('openai_api_key') && 'Configure your OpenAI API key in settings to get started'}
             </div>
           </div>
         </CardContent>
