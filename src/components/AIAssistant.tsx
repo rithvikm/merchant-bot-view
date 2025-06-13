@@ -2,20 +2,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Send, 
   Bot, 
-  User, 
-  TrendingUp,
-  CreditCard,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  DollarSign
+  User,
+  Loader2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { generateChatResponse } from '@/services/openai';
+import { ApiKeyDialog } from './chatbot/ApiKeyDialog';
 
 interface Message {
   id: string;
@@ -25,6 +21,11 @@ interface Message {
   hasChart?: boolean;
   chartType?: 'bar' | 'line' | 'pie';
   chartData?: any[];
+}
+
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
 }
 
 const transactionInsights = {
@@ -54,11 +55,12 @@ export const AIAssistant: React.FC = () => {
     {
       id: '1',
       type: 'bot',
-      content: 'Hello! I\'m your PayPal AI Assistant. I can help you analyze your transaction data, identify trends, and provide insights about your business performance. Try asking me about your revenue trends, transaction patterns, or any specific metrics you\'d like to understand better!',
+      content: 'Hello! I\'m your Transaction Insights AI Assistant. I can analyze your transaction data, create charts, and provide insights about your business performance. Ask me about revenue trends, transaction patterns, or any specific metrics you\'d like to understand better!',
       timestamp: new Date(),
     }
   ]);
   const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -69,8 +71,47 @@ export const AIAssistant: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const generateInsightResponse = (userMessage: string): Message => {
-    const message = userMessage.toLowerCase();
+  const determineChartFromMessage = (message: string, content: string) => {
+    const lowerMessage = message.toLowerCase();
+    const lowerContent = content.toLowerCase();
+    
+    if ((lowerMessage.includes('revenue') || lowerMessage.includes('sales') || lowerMessage.includes('earning')) && 
+        (lowerContent.includes('trend') || lowerContent.includes('over time'))) {
+      return {
+        hasChart: true,
+        chartType: 'line' as const,
+        chartData: transactionInsights.monthlyTrends
+      };
+    } else if ((lowerMessage.includes('status') || lowerMessage.includes('failed') || lowerMessage.includes('success')) ||
+               (lowerContent.includes('breakdown') || lowerContent.includes('distribution'))) {
+      return {
+        hasChart: true,
+        chartType: 'pie' as const,
+        chartData: transactionInsights.statusBreakdown
+      };
+    } else if ((lowerMessage.includes('category') || lowerMessage.includes('top') || lowerMessage.includes('best')) ||
+               (lowerContent.includes('categor') || lowerContent.includes('segment'))) {
+      return {
+        hasChart: true,
+        chartType: 'bar' as const,
+        chartData: transactionInsights.topCategories.map(cat => ({
+          name: cat.category,
+          revenue: cat.amount,
+          transactions: cat.transactions
+        }))
+      };
+    } else if (lowerMessage.includes('trend') || lowerMessage.includes('pattern') || lowerMessage.includes('monthly')) {
+      return {
+        hasChart: true,
+        chartType: 'bar' as const,
+        chartData: transactionInsights.monthlyTrends
+      };
+    }
+    
+    return { hasChart: false };
+  };
+
+  const generateInsightResponse = async (userMessage: string, conversationHistory: Message[] = []): Promise<Message> => {
     const botResponse: Message = {
       id: Date.now().toString(),
       type: 'bot',
@@ -78,48 +119,52 @@ export const AIAssistant: React.FC = () => {
       timestamp: new Date(),
     };
 
-    if (message.includes('revenue') || message.includes('sales') || message.includes('earning')) {
-      botResponse.content = 'Here\'s your revenue trend analysis over the past 6 months. I can see that February had the highest average transaction value at $21.58, while May had the lowest at $7.56. Your total revenue for this period is $16,060.';
-      botResponse.hasChart = true;
-      botResponse.chartType = 'line';
-      botResponse.chartData = transactionInsights.monthlyTrends;
-    } else if (message.includes('transaction') && (message.includes('status') || message.includes('failed') || message.includes('success'))) {
-      botResponse.content = 'Here\'s your transaction status breakdown. You have a 91.7% success rate with 1,180 completed transactions, 67 pending (5.2%), and only 40 failed transactions (3.1%). This is quite good performance!';
-      botResponse.hasChart = true;
-      botResponse.chartType = 'pie';
-      botResponse.chartData = transactionInsights.statusBreakdown;
-    } else if (message.includes('trend') || message.includes('pattern') || message.includes('monthly')) {
-      botResponse.content = 'Your monthly transaction patterns show interesting trends. May had the highest volume with 250 transactions, but April and June show more consistent performance. The average transaction value varies significantly month to month.';
-      botResponse.hasChart = true;
-      botResponse.chartType = 'bar';
-      botResponse.chartData = transactionInsights.monthlyTrends;
-    } else if (message.includes('category') || message.includes('top') || message.includes('best')) {
-      botResponse.content = 'Based on your transaction categories, E-commerce is your top performer with $8,500 in revenue from 450 transactions. Services and Digital Products are also strong segments. Here\'s the breakdown:';
-      botResponse.hasChart = true;
-      botResponse.chartType = 'bar';
-      botResponse.chartData = transactionInsights.topCategories.map(cat => ({
-        name: cat.category,
-        revenue: cat.amount,
-        transactions: cat.transactions
+    // Convert message history to OpenAI format
+    const chatHistory: ChatMessage[] = conversationHistory
+      .slice(-10) // Keep last 10 messages for context
+      .map(msg => ({
+        role: msg.type === 'user' ? 'user' : 'assistant',
+        content: msg.content
       }));
-    } else if (message.includes('improve') || message.includes('recommendation') || message.includes('advice')) {
-      botResponse.content = 'Based on your data analysis, here are my recommendations:\n\n• Focus on replicating February\'s success - higher average transaction values\n• Investigate May\'s performance drop and address underlying issues\n• Your 3.1% failure rate is good, but could be improved with better payment processing\n• E-commerce category is thriving - consider expanding this segment\n• Consider promoting higher-value services to increase average transaction amounts';
-    } else if (message.includes('compare') || message.includes('vs') || message.includes('difference')) {
-      botResponse.content = 'Let me compare your best and worst performing months:\n\n📈 **February (Best)**: 139 transactions, $3,000 revenue, $21.58 avg\n📉 **May (Challenging)**: 250 transactions, $1,890 revenue, $7.56 avg\n\nMay had 80% more transactions but 37% less revenue, indicating a shift toward lower-value transactions. This suggests a change in customer behavior or product mix.';
-    } else {
-      const responses = [
-        'I can help you analyze various aspects of your transaction data. Try asking about revenue trends, transaction patterns, success rates, or recommendations for improvement.',
-        'What specific insights would you like about your transactions? I can show you charts for revenue, transaction volumes, success rates, or category breakdowns.',
-        'I have access to your transaction analytics. Ask me about monthly trends, performance comparisons, or any specific metrics you\'d like to understand better.',
-      ];
-      botResponse.content = responses[Math.floor(Math.random() * responses.length)];
+
+    const systemPrompt = `You are a Transaction Insights AI Assistant for a PayPal business dashboard. You help users analyze their transaction data and provide business insights.
+
+Available transaction data:
+- Monthly trends: Jan (240 transactions, $4000 revenue), Feb (139 transactions, $3000 revenue), Mar (180 transactions, $2000 revenue), Apr (221 transactions, $2780 revenue), May (250 transactions, $1890 revenue), Jun (210 transactions, $2390 revenue)
+- Transaction status: 1180 completed (91.7%), 67 pending (5.2%), 40 failed (3.1%)
+- Top categories: E-commerce ($8500, 450 transactions), Services ($6200, 320 transactions), Digital Products ($4800, 280 transactions), Subscriptions ($3200, 180 transactions)
+
+When users ask about charts, data visualization, trends, or specific metrics, provide detailed insights based on this data. 
+When discussing revenue trends, mention that you'll show a line chart.
+When discussing transaction status or breakdowns, mention that you'll show a pie chart.
+When discussing categories or comparisons, mention that you'll show a bar chart.
+
+Keep responses professional, insightful, and focused on actionable business intelligence.`;
+
+    try {
+      console.log('Generating AI response for transaction insights:', userMessage);
+      const response = await generateChatResponse(userMessage, [
+        { role: 'system', content: systemPrompt },
+        ...chatHistory
+      ]);
+      botResponse.content = response;
+
+      // Determine if we should show a chart based on the user message and AI response
+      const chartInfo = determineChartFromMessage(userMessage, response);
+      botResponse.hasChart = chartInfo.hasChart;
+      botResponse.chartType = chartInfo.chartType;
+      botResponse.chartData = chartInfo.chartData;
+
+    } catch (error) {
+      console.error('Error generating AI response:', error);
+      botResponse.content = "I apologize, but I'm having trouble generating insights right now. Please make sure your OpenAI API key is configured correctly in the settings.";
     }
 
     return botResponse;
   };
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -129,13 +174,25 @@ export const AIAssistant: React.FC = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue('');
+    setIsLoading(true);
 
-    // Simulate AI processing time
-    setTimeout(() => {
-      const botResponse = generateInsightResponse(inputValue);
+    try {
+      const botResponse = await generateInsightResponse(currentInput, messages);
       setMessages(prev => [...prev, botResponse]);
-    }, 1000);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: 'Sorry, I encountered an error generating insights. Please try again.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderChart = (message: Message) => {
@@ -203,7 +260,7 @@ export const AIAssistant: React.FC = () => {
 
   const quickQuestions = [
     "Show me my revenue trends",
-    "What's my transaction success rate?",
+    "What's my transaction success rate?", 
     "Compare my best and worst months",
     "Give me improvement recommendations"
   ];
@@ -217,9 +274,12 @@ export const AIAssistant: React.FC = () => {
 
       <Card className="h-[600px] flex flex-col">
         <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-          <CardTitle className="flex items-center space-x-2">
-            <Bot className="w-5 h-5" />
-            <span>Transaction Insights AI</span>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Bot className="w-5 h-5" />
+              <span>Transaction Insights AI</span>
+            </div>
+            <ApiKeyDialog />
           </CardTitle>
         </CardHeader>
 
@@ -256,6 +316,21 @@ export const AIAssistant: React.FC = () => {
                 </div>
               </div>
             ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="max-w-3xl p-4 rounded-lg bg-gray-100 text-gray-900">
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0">
+                      <Bot className="w-5 h-5 mt-1" />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">Analyzing your data...</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -271,6 +346,7 @@ export const AIAssistant: React.FC = () => {
                     setTimeout(() => handleSendMessage(), 100);
                   }}
                   className="text-xs"
+                  disabled={isLoading}
                 >
                   {question}
                 </Button>
@@ -290,14 +366,18 @@ export const AIAssistant: React.FC = () => {
                 placeholder="Ask me about your transaction insights, revenue trends, or business performance..."
                 className="flex-1 min-h-[60px] resize-none"
                 rows={2}
+                disabled={isLoading}
               />
               <Button 
                 onClick={handleSendMessage} 
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() || isLoading}
                 className="self-end"
               >
-                <Send className="w-4 h-4" />
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
+            </div>
+            <div className="text-xs text-gray-500 text-center">
+              {!localStorage.getItem('openai_api_key') && 'Configure your OpenAI API key in settings to get started'}
             </div>
           </div>
         </CardContent>
