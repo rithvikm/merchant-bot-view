@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,7 +88,7 @@ const extractDataFromMessage = (message: string) => {
 };
 
 // Helper function to determine chart type from user message and data
-const determineChartTypeFromRequest = (message: string, data: any[]) => {
+const determineChartTypeFromRequest = (message: string, data: any[]): 'bar' | 'line' | 'pie' | null => {
   const lowerMessage = message.toLowerCase();
   
   // Explicit chart type requests
