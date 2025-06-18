@@ -60,6 +60,85 @@ const transactionInsights = {
   ]
 };
 
+// Helper function to detect and parse JSON objects from user input
+const extractDataFromMessage = (message: string) => {
+  try {
+    // Look for JSON objects in the message
+    const jsonRegex = /\{[\s\S]*\}/;
+    const match = message.match(jsonRegex);
+    
+    if (match) {
+      const parsedData = JSON.parse(match[0]);
+      return Array.isArray(parsedData) ? parsedData : [parsedData];
+    }
+    
+    // Look for array of objects
+    const arrayRegex = /\[[\s\S]*\]/;
+    const arrayMatch = message.match(arrayRegex);
+    
+    if (arrayMatch) {
+      return JSON.parse(arrayMatch[0]);
+    }
+  } catch (error) {
+    console.log('No valid JSON found in message');
+  }
+  
+  return null;
+};
+
+// Helper function to determine chart type from user message and data
+const determineChartTypeFromRequest = (message: string, data: any[]) => {
+  const lowerMessage = message.toLowerCase();
+  
+  // Explicit chart type requests
+  if (lowerMessage.includes('bar chart') || lowerMessage.includes('bar graph')) {
+    return 'bar';
+  }
+  if (lowerMessage.includes('pie chart') || lowerMessage.includes('pie graph')) {
+    return 'pie';
+  }
+  if (lowerMessage.includes('line chart') || lowerMessage.includes('line graph') || lowerMessage.includes('trend')) {
+    return 'line';
+  }
+  
+  // Auto-detect based on data structure
+  if (data && data.length > 0) {
+    const firstItem = data[0];
+    
+    // If data has color property, likely pie chart data
+    if (firstItem.color) {
+      return 'pie';
+    }
+    
+    // If data has month/date field, likely line chart
+    if (firstItem.month || firstItem.date || firstItem.time) {
+      return 'line';
+    }
+    
+    // Default to bar chart for categorical data
+    return 'bar';
+  }
+  
+  return null;
+};
+
+// Helper function to process data for charts
+const processDataForChart = (data: any[], chartType: string) => {
+  if (!data || data.length === 0) return data;
+  
+  return data.map((item, index) => {
+    const processedItem = { ...item };
+    
+    // Add colors for pie charts if not present
+    if (chartType === 'pie' && !processedItem.color) {
+      const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
+      processedItem.color = colors[index % colors.length];
+    }
+    
+    return processedItem;
+  });
+};
+
 export const AIAssistant: React.FC = () => {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
     const saved = localStorage.getItem('ai_chat_sessions');
@@ -157,6 +236,13 @@ export const AIAssistant: React.FC = () => {
     // Generate contextual suggestions based on conversation
     const contextualSuggestions: string[] = [];
     
+    // Check if user provided data
+    if (userMessages.some(m => extractDataFromMessage(m.content))) {
+      contextualSuggestions.push("Create a bar chart from this data");
+      contextualSuggestions.push("Show this as a pie chart");
+      contextualSuggestions.push("Generate a line chart");
+    }
+    
     // Check if user asked about revenue/trends
     if (userMessages.some(m => m.content.toLowerCase().includes('revenue') || m.content.toLowerCase().includes('trend'))) {
       contextualSuggestions.push("Break down revenue by category");
@@ -169,16 +255,10 @@ export const AIAssistant: React.FC = () => {
       contextualSuggestions.push("What causes transaction failures?");
     }
     
-    // Check if user asked about categories
-    if (userMessages.some(m => m.content.toLowerCase().includes('category') || m.content.toLowerCase().includes('segment'))) {
-      contextualSuggestions.push("Which category has highest growth?");
-      contextualSuggestions.push("Compare category performance");
-    }
-    
     // Check if charts were shown
     if (botMessages.some(m => m.hasChart)) {
-      contextualSuggestions.push("Explain what this data means for my business");
-      contextualSuggestions.push("What actions should I take based on this?");
+      contextualSuggestions.push("Explain what this data means");
+      contextualSuggestions.push("Show this data differently");
     }
     
     // Fill remaining slots with base suggestions
@@ -197,6 +277,20 @@ export const AIAssistant: React.FC = () => {
     const lowerMessage = message.toLowerCase();
     const lowerContent = content.toLowerCase();
     
+    // First, check if user provided data in their message
+    const userData = extractDataFromMessage(message);
+    if (userData) {
+      const requestedChartType = determineChartTypeFromRequest(message, userData);
+      if (requestedChartType) {
+        return {
+          hasChart: true,
+          chartType: requestedChartType,
+          chartData: processDataForChart(userData, requestedChartType)
+        };
+      }
+    }
+    
+    // Fallback to existing logic for predefined data
     if ((lowerMessage.includes('revenue') || lowerMessage.includes('sales') || lowerMessage.includes('earning')) && 
         (lowerContent.includes('trend') || lowerContent.includes('over time'))) {
       return {
@@ -241,6 +335,10 @@ export const AIAssistant: React.FC = () => {
       timestamp: new Date(),
     };
 
+    // Check if user provided data for chart generation
+    const userData = extractDataFromMessage(userMessage);
+    const hasUserData = userData && userData.length > 0;
+
     // Convert message history to OpenAI format
     const chatHistory: ChatMessage[] = conversationHistory
       .slice(-10) // Keep last 10 messages for context
@@ -256,14 +354,14 @@ Available transaction data:
 - Transaction status: 1180 completed (91.7%), 67 pending (5.2%), 40 failed (3.1%)
 - Top categories: E-commerce ($8500, 450 transactions), Services ($6200, 320 transactions), Digital Products ($4800, 280 transactions), Subscriptions ($3200, 180 transactions)
 
-Consider the conversation history when providing responses. Build on previous topics discussed and provide deeper insights based on the context of the conversation.
+IMPORTANT: If the user provides data in JSON format or asks for specific chart types (bar chart, pie chart, line chart), acknowledge that you'll create the requested visualization. When users provide their own data, focus your analysis on that data rather than the default transaction data.
 
-When users ask about charts, data visualization, trends, or specific metrics, provide detailed insights based on this data. 
+When users ask about charts, data visualization, trends, or specific metrics, provide detailed insights based on the relevant data. 
 When discussing revenue trends, mention that you'll show a line chart.
 When discussing transaction status or breakdowns, mention that you'll show a pie chart.
 When discussing categories or comparisons, mention that you'll show a bar chart.
 
-Keep responses professional, insightful, and focused on actionable business intelligence.`;
+Keep responses professional, insightful, and focused on actionable business intelligence.${hasUserData ? '\n\nThe user has provided custom data for analysis. Focus your response on analyzing their specific data.' : ''}`;
 
     try {
       console.log('Generating AI response for transaction insights:', userMessage);
