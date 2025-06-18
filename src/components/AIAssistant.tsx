@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -64,27 +63,56 @@ const transactionInsights = {
 // Helper function to detect and parse JSON objects from user input
 const extractDataFromMessage = (message: string) => {
   try {
-    // Look for JSON objects in the message
-    const jsonRegex = /\{[\s\S]*\}/;
-    const match = message.match(jsonRegex);
+    // Look for multiple JSON patterns in the message
+    const patterns = [
+      // Standard object notation
+      /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g,
+      // Array notation
+      /\[[^\]]*(?:\[[^\]]*\][^\]]*)*\]/g,
+    ];
     
-    if (match) {
-      const parsedData = JSON.parse(match[0]);
-      return Array.isArray(parsedData) ? parsedData : [parsedData];
+    let extractedData = null;
+    
+    for (const pattern of patterns) {
+      const matches = message.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          try {
+            const parsed = JSON.parse(match);
+            // If we successfully parse, store it
+            if (parsed) {
+              extractedData = Array.isArray(parsed) ? parsed : [parsed];
+              console.log('Successfully extracted JSON data:', extractedData);
+              break;
+            }
+          } catch (parseError) {
+            // Try to clean up common formatting issues
+            let cleaned = match
+              .replace(/'/g, '"') // Replace single quotes with double quotes
+              .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":') // Add quotes around unquoted keys
+              .replace(/:\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*([,}])/g, ': "$1"$2'); // Add quotes around unquoted string values
+            
+            try {
+              const parsed = JSON.parse(cleaned);
+              if (parsed) {
+                extractedData = Array.isArray(parsed) ? parsed : [parsed];
+                console.log('Successfully extracted and cleaned JSON data:', extractedData);
+                break;
+              }
+            } catch (cleanError) {
+              continue; // Try next match
+            }
+          }
+        }
+        if (extractedData) break; // Exit outer loop if we found data
+      }
     }
     
-    // Look for array of objects
-    const arrayRegex = /\[[\s\S]*\]/;
-    const arrayMatch = message.match(arrayRegex);
-    
-    if (arrayMatch) {
-      return JSON.parse(arrayMatch[0]);
-    }
+    return extractedData;
   } catch (error) {
-    console.log('No valid JSON found in message');
+    console.log('No valid JSON found in message:', error);
+    return null;
   }
-  
-  return null;
 };
 
 // Helper function to determine chart type from user message and data
@@ -185,7 +213,7 @@ export const AIAssistant: React.FC = () => {
       messages: [{
         id: '1',
         type: 'bot',
-        content: 'Hello! I\'m your Transaction Insights AI Assistant. I can analyze your transaction data, create charts, and provide insights about your business performance. Ask me about revenue trends, transaction patterns, or any specific metrics you\'d like to understand better!',
+        content: 'Hello! I\'m your Transaction Insights AI Assistant. I can analyze your transaction data, create charts, and provide insights about your business performance. You can also provide JSON data within your messages and I\'ll create visualizations for you. Ask me about revenue trends, transaction patterns, or any specific metrics you\'d like to understand better!',
         timestamp: new Date(),
       }],
       createdAt: new Date(),
@@ -687,7 +715,7 @@ Keep responses professional, insightful, and focused on actionable business inte
                       handleSendMessage();
                     }
                   }}
-                  placeholder="Ask me about your transaction insights, revenue trends, or business performance..."
+                  placeholder="Ask me about your transaction insights, revenue trends, or provide JSON data for custom charts..."
                   className="flex-1 min-h-[60px] resize-none"
                   rows={2}
                   disabled={isLoading}
