@@ -6,52 +6,53 @@ import {
   TrendingUp, 
   TrendingDown, 
   DollarSign, 
-  CreditCard, 
-  Users, 
+  BitcoinIcon, 
+  Wallet, 
   ArrowUpRight,
-  MoreHorizontal
+  MoreHorizontal,
+  Activity
 } from 'lucide-react';
 
 const metrics = [
   {
-    title: 'Total Revenue',
-    value: '$24,532.10',
-    change: '+12.5%',
+    title: 'Portfolio Value',
+    value: '$47,832.45',
+    change: '+15.3%',
     trend: 'up',
-    icon: DollarSign,
+    icon: Wallet,
     color: 'text-green-600'
   },
   {
-    title: 'Transactions',
-    value: '1,247',
-    change: '+8.2%',
+    title: 'Total Trades',
+    value: '2,847',
+    change: '+12.8%',
     trend: 'up',
-    icon: CreditCard,
+    icon: Activity,
     color: 'text-blue-600'
   },
   {
-    title: 'Active Customers',
-    value: '892',
-    change: '+15.3%',
+    title: 'Active Assets',
+    value: '18',
+    change: '+3',
     trend: 'up',
-    icon: Users,
-    color: 'text-purple-600'
+    icon: BitcoinIcon,
+    color: 'text-orange-600'
   },
   {
-    title: 'Conversion Rate',
-    value: '3.24%',
-    change: '-2.1%',
-    trend: 'down',
+    title: 'P&L (24h)',
+    value: '+$1,247.80',
+    change: '+3.2%',
+    trend: 'up',
     icon: TrendingUp,
-    color: 'text-orange-600'
+    color: 'text-purple-600'
   }
 ];
 
-const recentTransactions = [
-  { id: '#TXN001', customer: 'John Smith', amount: '$129.99', status: 'Completed', date: '2 hours ago' },
-  { id: '#TXN002', customer: 'Sarah Johnson', amount: '$89.50', status: 'Pending', date: '3 hours ago' },
-  { id: '#TXN003', customer: 'Mike Wilson', amount: '$234.75', status: 'Completed', date: '5 hours ago' },
-  { id: '#TXN004', customer: 'Emily Davis', amount: '$156.20', status: 'Failed', date: '1 day ago' },
+const recentTrades = [
+  { id: '#KRK001', pair: 'BTC/USD', amount: '0.25 BTC', price: '$43,250.00', status: 'Filled', type: 'Buy' },
+  { id: '#KRK002', pair: 'ETH/USD', amount: '2.5 ETH', price: '$2,850.75', status: 'Filled', type: 'Sell' },
+  { id: '#KRK003', pair: 'ADA/USD', amount: '1000 ADA', price: '$0.65', status: 'Partial', type: 'Buy' },
+  { id: '#KRK004', pair: 'SOL/USD', amount: '15 SOL', price: '$98.45', status: 'Cancelled', type: 'Sell' },
 ];
 
 export const DashboardContent: React.FC = () => {
@@ -93,38 +94,42 @@ export const DashboardContent: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Transactions</CardTitle>
+            <CardTitle>Recent Trades</CardTitle>
             <Button variant="ghost" size="sm">
               <MoreHorizontal className="w-4 h-4" />
             </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentTransactions.map((transaction, index) => (
+              {recentTrades.map((trade, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <CreditCard className="w-5 h-5 text-blue-600" />
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      trade.type === 'Buy' ? 'bg-green-100' : 'bg-red-100'
+                    }`}>
+                      <BitcoinIcon className={`w-5 h-5 ${
+                        trade.type === 'Buy' ? 'text-green-600' : 'text-red-600'
+                      }`} />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{transaction.id}</p>
-                      <p className="text-sm text-gray-500">{transaction.customer}</p>
+                      <p className="font-medium text-gray-900">{trade.pair}</p>
+                      <p className="text-sm text-gray-500">{trade.amount}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium text-gray-900">{transaction.amount}</p>
+                    <p className="font-medium text-gray-900">{trade.price}</p>
                     <p className={`text-sm ${
-                      transaction.status === 'Completed' ? 'text-green-600' :
-                      transaction.status === 'Pending' ? 'text-yellow-600' : 'text-red-600'
+                      trade.status === 'Filled' ? 'text-green-600' :
+                      trade.status === 'Partial' ? 'text-yellow-600' : 'text-red-600'
                     }`}>
-                      {transaction.status}
+                      {trade.status}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
             <Button variant="outline" className="w-full mt-4">
-              View All Transactions
+              View All Trades
               <ArrowUpRight className="w-4 h-4 ml-2" />
             </Button>
           </CardContent>
@@ -136,21 +141,21 @@ export const DashboardContent: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
-              <Button className="h-20 flex flex-col items-center justify-center space-y-2">
-                <DollarSign className="w-6 h-6" />
-                <span>Send Invoice</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
-                <CreditCard className="w-6 h-6" />
-                <span>Process Payment</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
-                <Users className="w-6 h-6" />
-                <span>Manage Customers</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+              <Button className="h-20 flex flex-col items-center justify-center space-y-2 bg-purple-600 hover:bg-purple-700">
                 <TrendingUp className="w-6 h-6" />
-                <span>View Analytics</span>
+                <span>Buy Crypto</span>
+              </Button>
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+                <TrendingDown className="w-6 h-6" />
+                <span>Sell Crypto</span>
+              </Button>
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+                <Wallet className="w-6 h-6" />
+                <span>Deposit Funds</span>
+              </Button>
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+                <Activity className="w-6 h-6" />
+                <span>View Markets</span>
               </Button>
             </div>
           </CardContent>

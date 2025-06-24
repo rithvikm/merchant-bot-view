@@ -2,16 +2,19 @@
 import React from 'react';
 import { 
   Home, 
-  CreditCard, 
+  TrendingUp, 
   BarChart3, 
   Settings, 
-  Users, 
+  Wallet, 
   DollarSign,
-  TrendingUp,
+  BitcoinIcon,
   FileText,
   Shield,
   HelpCircle,
-  Bot
+  Bot,
+  Activity,
+  PieChart,
+  History
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,12 +25,14 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'transactions', label: 'Transactions', icon: CreditCard },
+  { id: 'trading', label: 'Trading', icon: TrendingUp },
+  { id: 'portfolio', label: 'Portfolio', icon: PieChart },
+  { id: 'orders', label: 'Orders', icon: Activity },
+  { id: 'history', label: 'Trade History', icon: History },
+  { id: 'funding', label: 'Funding', icon: Wallet },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'ai-assistant', label: 'AI Assistant', icon: Bot },
-  { id: 'customers', label: 'Customers', icon: Users },
-  { id: 'payouts', label: 'Payouts', icon: DollarSign },
-  { id: 'growth', label: 'Growth Tools', icon: TrendingUp },
+  { id: 'markets', label: 'Markets', icon: BitcoinIcon },
   { id: 'reports', label: 'Reports', icon: FileText },
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -39,12 +44,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     <div className="w-64 bg-white border-r border-gray-200 h-full flex flex-col">
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">P</span>
+          <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">K</span>
           </div>
           <div>
-            <h2 className="font-semibold text-gray-900">PayPal Business</h2>
-            <p className="text-sm text-gray-500">Merchant Dashboard</p>
+            <h2 className="font-semibold text-gray-900">Kraken Pro</h2>
+            <p className="text-sm text-gray-500">Trading Dashboard</p>
           </div>
         </div>
       </div>
@@ -60,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
                   className={cn(
                     "w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors",
                     activeTab === item.id
-                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      ? "bg-purple-50 text-purple-700 border border-purple-200"
                       : "text-gray-700 hover:bg-gray-50"
                   )}
                 >
