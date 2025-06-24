@@ -306,9 +306,9 @@ export const AIAssistant: React.FC = () => {
     const lowerMessage = message.toLowerCase();
     const lowerContent = content.toLowerCase();
     
-    // First, check if user provided data in their message
+    // First priority: Check if user provided data in their message
     const userData = extractDataFromMessage(message);
-    if (userData) {
+    if (userData && userData.length > 0) {
       const requestedChartType = determineChartTypeFromRequest(message, userData);
       if (requestedChartType) {
         return {
@@ -317,9 +317,43 @@ export const AIAssistant: React.FC = () => {
           chartData: processDataForChart(userData, requestedChartType)
         };
       }
+      // If user provided data but no specific chart type, default to bar
+      return {
+        hasChart: true,
+        chartType: 'bar' as const,
+        chartData: processDataForChart(userData, 'bar')
+      };
     }
     
-    // Fallback to existing logic for predefined data
+    // Second priority: Check if AI response mentions showing a chart
+    if (lowerContent.includes('show') && (lowerContent.includes('chart') || lowerContent.includes('graph'))) {
+      // Determine chart type based on message context
+      if (lowerContent.includes('pie') || lowerContent.includes('breakdown') || lowerContent.includes('distribution')) {
+        return {
+          hasChart: true,
+          chartType: 'pie' as const,
+          chartData: transactionInsights.statusBreakdown
+        };
+      } else if (lowerContent.includes('line') || lowerContent.includes('trend') || lowerContent.includes('over time')) {
+        return {
+          hasChart: true,
+          chartType: 'line' as const,
+          chartData: transactionInsights.monthlyTrends
+        };
+      } else {
+        return {
+          hasChart: true,
+          chartType: 'bar' as const,
+          chartData: transactionInsights.topCategories.map(cat => ({
+            name: cat.category,
+            revenue: cat.amount,
+            transactions: cat.transactions
+          }))
+        };
+      }
+    }
+    
+    // Fallback: Only use hardcoded data if specifically mentioned and no user data provided
     if ((lowerMessage.includes('revenue') || lowerMessage.includes('sales') || lowerMessage.includes('earning')) && 
         (lowerContent.includes('trend') || lowerContent.includes('over time'))) {
       return {
@@ -344,12 +378,6 @@ export const AIAssistant: React.FC = () => {
           revenue: cat.amount,
           transactions: cat.transactions
         }))
-      };
-    } else if (lowerMessage.includes('trend') || lowerMessage.includes('pattern') || lowerMessage.includes('monthly')) {
-      return {
-        hasChart: true,
-        chartType: 'bar' as const,
-        chartData: transactionInsights.monthlyTrends
       };
     }
     
